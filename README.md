@@ -9,6 +9,15 @@ local Ollama model or a hosted API).
 > Detailed technical notes per feature (design decisions, rules, endpoint tables, limitations) are in
 > [backend/README.md](backend/README.md). The end-user manual is [DocuMind_AI_User_Guide.pdf](DocuMind_AI_User_Guide.pdf).
 
+## Live demo
+
+**https://jidnyasagirase4.github.io/documind-ai/demo/** is the real React app running entirely in the visitor's browser on six sample
+documents (register or log in with `demo@example.com` / `DocuMind2026`, then open the dashboard). It has no server: the recorded responses of the
+real backend are served by `frontend/src/demo/engine.js`, accounts and chats are stored in the browser's localStorage, the Assistant quotes the
+best-matching sentence instead of calling an AI model, meaning-based search is approximated by word matching, and everything that writes shared data
+(upload, collections, sharing, versions, reviews, conflict checks) is switched off. Rebuild it with `cd frontend && npm run build:demo` (writes `docs/demo`);
+re-record the data from a running backend with `cd backend && python scripts/record_demo_fixtures.py`.
+
 ## Features
 
 | Area | What it does |

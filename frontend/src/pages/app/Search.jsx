@@ -24,6 +24,7 @@ const MODES = [
 const SORTS = { relevance: 'Most relevant', newest: 'Newest first', title: 'Title A–Z' }
 const WARNINGS = {
   semantic_unavailable: 'Semantic search is unavailable right now, so these are keyword results only.',
+  demo_semantic_approximation: 'Demo: meaning-based search is approximated here by matching words in the sample documents.',
   relaxed_to_any_term: 'No document contained every word, so these results contain at least one of them.',
 }
 const PAGE_SIZE = 10

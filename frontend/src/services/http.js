@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { API_BASE_URL, API_PREFIX, TOKEN_STORAGE_KEY } from '../utils/config'
+import { DEMO } from '../demo/config'
 
 export class ApiError extends Error {
   constructor(message, { status = 0, code = 'UNKNOWN', details = null } = {}) {
@@ -46,6 +47,9 @@ export const http = axios.create({
   baseURL: `${API_BASE_URL}${API_PREFIX}`,
   timeout: 60000,
 })
+
+// Public demo build: requests are answered in the browser from the recorded sample data (see src/demo/engine.js).
+if (DEMO) http.defaults.adapter = (cfg) => import('../demo/engine').then((m) => m.handle(cfg))
 
 http.interceptors.request.use((config) => {
   const token = tokenStore.get()

@@ -36,6 +36,15 @@ CHAPTERS = [
                 ["Schedule reviews and track what is overdue", "Document page - Content review, and the Reviews page"],
                 ["Check documents for possible contradictions", "Document page - Potential conflicts, and Reviews - Potential conflicts"],
             ], [62, 38]),
+            ("h2", "Trying it online first: the public demo"),
+            ("p", "A demo of the real screens is published at https://jidnyasagirase4.github.io/documind-ai/demo/ . Create an account there (or use the sample account "
+                  "demo@example.com with the password DocuMind2026) and you reach the same dashboard, document list, search, Knowledge Base, version history, "
+                  "Reviews and analytics as in the full application, filled with six sample documents."),
+            ("bullets", [
+                "<b>How it works:</b> the demo runs completely inside your browser. Your account and your chats stay in this browser only; nothing is sent to a server.",
+                "<b>What is simplified:</b> the Assistant quotes the best-matching sentence of the sample documents with its source instead of writing an AI answer, and meaning-based search is approximated by matching words.",
+                "<b>What is switched off:</b> uploading, creating or editing collections, sharing, new versions, reviews and conflict checks show the message that they are disabled in the demo. Run the full application (see the project README) to use them.",
+            ]),
             ("h2", "A few words used in this guide"),
             ("table", ["Word", "Meaning"], [
                 ["Document", "One PDF that you uploaded. It keeps the same name and place while you upload newer versions of it."],

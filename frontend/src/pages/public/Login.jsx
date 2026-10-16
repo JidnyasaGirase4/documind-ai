@@ -8,6 +8,7 @@ import { Button } from '../../components/common/Button'
 import { useAuth } from '../../context/AuthContext'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { validateLogin } from '../../utils/validation'
+import { DEMO, DEMO_EMAIL, DEMO_PASSWORD } from '../../demo/config'
 
 export default function Login() {
   useDocumentTitle('Log In')
@@ -66,6 +67,15 @@ export default function Login() {
         </p>
       )}
       <form onSubmit={onSubmit} noValidate className="space-y-4">
+        {DEMO && (
+          <p className="rounded-control bg-brand-50 p-3 text-sm text-ink">
+            Demo account: <strong>{DEMO_EMAIL}</strong> / <strong>{DEMO_PASSWORD}</strong>{' '}
+            <button type="button" className="font-medium text-brand-700 underline" onClick={() => setForm({ email: DEMO_EMAIL, password: DEMO_PASSWORD })}>
+              Fill in
+            </button>
+            . Or create your own account; it stays in this browser.
+          </p>
+        )}
         <FormErrorSummary errors={errors} apiError={apiError} />
         <Input label="Email" leftIcon={Mail} placeholder="you@example.com" type="email" autoComplete="email" value={form.email} onChange={set('email')} error={errors.email} />
         <PasswordInput label="Password" leftIcon={Lock} placeholder="Your password" value={form.password} onChange={set('password')} error={errors.password} />
