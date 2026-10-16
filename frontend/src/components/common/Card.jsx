@@ -18,7 +18,7 @@ export function Card({ as: Tag = 'div', className, padded = true, interactive = 
 
 export function CardHeader({ title, description, action, as: Heading = 'h2' }) {
   return (
-    <div className="mb-4 flex items-start justify-between gap-3">
+    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0">
         <Heading className="font-display text-[17px] font-bold text-ink">{title}</Heading>
         {description && <p className="mt-0.5 text-sm text-muted">{description}</p>}

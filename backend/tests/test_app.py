@@ -52,3 +52,19 @@ def test_settings_require_secrets_and_reject_unsafe_production_config(monkeypatc
         Settings(_env_file=None, **_base(chunk_size=100, chunk_overlap=100))
     ok = Settings(_env_file=None, **_base(app_env="production", llm_provider="anthropic", embedding_provider="sentence_transformers"))
     assert ok.app_env == "production"
+
+
+def test_cors_preflight_allows_every_http_method_the_api_uses(client):
+    """A browser blocks any method the CORS policy does not list (a PUT route once slipped through). Every method used by
+    any route must pass the preflight for the configured frontend origin."""
+    from app.main import app
+
+    methods = {m.upper() for ops in app.openapi()["paths"].values() for m in ops}
+    assert {"PUT", "PATCH", "DELETE", "POST", "GET"} <= methods
+    for method in sorted(methods):
+        r = client.options(
+            "/api/v1/documents",
+            headers={"Origin": "http://localhost:5173", "Access-Control-Request-Method": method, "Access-Control-Request-Headers": "authorization,content-type"},
+        )
+        assert r.status_code == 200, f"preflight for {method} answered {r.status_code}"
+        assert r.headers["access-control-allow-origin"] == "http://localhost:5173"

@@ -4,7 +4,8 @@ from sqlalchemy import text
 
 from app.core.config import settings
 from app.db.session import engine
-from app.services import document_service, vector_service
+from app import worker
+from app.services import job_service, vector_service
 from app.services.embedding_service import EmbeddingError
 from tests.conftest import API, PARENTAL, WARRANTY, make_pdf, new_user, ready_document, upload
 
@@ -19,7 +20,8 @@ def test_upload_processes_the_pdf_and_marks_it_ready(client):
     r = upload(client, h, [PARENTAL, WARRANTY], "handbook.pdf")
     assert r.status_code == 202
     body = r.json()
-    assert body["processing_status"] == "processing"  # the response is sent before background processing
+    assert body["processing_status"] == "queued"  # the response is sent before background processing
+    assert body["job"]["status"] == "queued"
     assert body["original_filename"] == "handbook.pdf"
     assert "storage_path" not in body  # internal paths never leave the server
 
@@ -93,8 +95,8 @@ def test_retry_after_failure_reindexes_without_duplicates(client, monkeypatch):
         def embed(self, texts):
             raise EmbeddingError("model offline")
 
-    original = document_service.get_embedder
-    monkeypatch.setattr(document_service, "get_embedder", lambda: Broken())
+    original = job_service.get_embedder
+    monkeypatch.setattr(job_service, "get_embedder", lambda: Broken())
     r = upload(client, h, [PARENTAL])
     doc_id = r.json()["id"]
     failed = client.get(f"{API}/documents/{doc_id}", headers=h).json()
@@ -103,9 +105,11 @@ def test_retry_after_failure_reindexes_without_duplicates(client, monkeypatch):
     with engine.connect() as conn:
         assert conn.execute(text("SELECT COUNT(*) FROM document_chunks WHERE document_id=:i"), {"i": doc_id}).scalar() == 0
 
-    monkeypatch.setattr(document_service, "get_embedder", original)
+    monkeypatch.setattr(job_service, "get_embedder", original)
     retry = client.post(f"{API}/documents/{doc_id}/retry", headers=h)
     assert retry.status_code == 202
+    assert retry.json()["processing_status"] == "queued"
+    worker.drain()
     ok = client.get(f"{API}/documents/{doc_id}", headers=h).json()
     assert ok["processing_status"] == "ready" and ok["processing_error"] is None
     with engine.connect() as conn:
@@ -114,7 +118,7 @@ def test_retry_after_failure_reindexes_without_duplicates(client, monkeypatch):
     assert len(vector_service._collection().get(where={"document_id": doc_id})["ids"]) == 1
 
     # Only failed documents can be retried.
-    assert client.post(f"{API}/documents/{doc_id}/retry", headers=h).status_code == 400
+    assert client.post(f"{API}/documents/{doc_id}/retry", headers=h).status_code == 409
 
 
 def test_delete_removes_database_rows_vectors_and_file(client):

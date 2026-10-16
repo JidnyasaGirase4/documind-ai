@@ -18,7 +18,7 @@ def stats(db: Session, user: User) -> dict:
     return {
         "total_documents": sum(rows.values()),
         "ready_documents": rows.get("ready", 0),
-        "processing_documents": rows.get("uploaded", 0) + rows.get("processing", 0),
+        "processing_documents": rows.get("uploaded", 0) + rows.get("queued", 0) + rows.get("processing", 0),
         "failed_documents": rows.get("failed", 0),
     }
 

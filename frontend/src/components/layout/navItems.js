@@ -1,8 +1,11 @@
-import { BarChart3, FileText, History, LayoutDashboard, MessageSquareText, Settings } from 'lucide-react'
+import { BarChart3, ClipboardCheck, FileText, FolderTree, Search, History, LayoutDashboard, MessageSquareText, Settings } from 'lucide-react'
 
 export const NAV_ITEMS = [
   { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/app/documents', label: 'My Documents', icon: FileText },
+  { to: '/app/search', label: 'Search', icon: Search },
+  { to: '/app/knowledge', label: 'Knowledge Base', icon: FolderTree },
+  { to: '/app/reviews', label: 'Reviews', icon: ClipboardCheck },
   { to: '/app/assistant', label: 'AI Assistant', icon: MessageSquareText },
   { to: '/app/history', label: 'Chat History', icon: History },
   { to: '/app/analytics', label: 'Analytics', icon: BarChart3 },

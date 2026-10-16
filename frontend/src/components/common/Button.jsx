@@ -29,7 +29,7 @@ export const Button = forwardRef(function Button(
   ref,
 ) {
   const classes = cx(
-    'group/btn inline-flex shrink-0 items-center justify-center rounded-control font-semibold transition-all duration-200 disabled:cursor-not-allowed',
+    'group/btn inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-control font-semibold transition-all duration-200 disabled:cursor-not-allowed',
     VARIANTS[variant],
     SIZES[size],
     className,

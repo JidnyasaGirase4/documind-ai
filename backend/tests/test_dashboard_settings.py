@@ -45,7 +45,7 @@ def test_analytics_overview_counts_only_the_users_own_activity(client):
     assert data["question_activity"][-1] == {"date": today, "count": 1}
     assert sum(p["count"] for p in data["uploads_over_time"]) == 2
     status = {s["status"]: s["count"] for s in data["status_distribution"]}
-    assert status == {"uploaded": 0, "processing": 0, "ready": 2, "failed": 0}
+    assert status == {"uploaded": 0, "queued": 0, "processing": 0, "ready": 2, "failed": 0}
 
     other = client.get(f"{API}/analytics/overview", headers=b).json()
     assert sum(p["count"] for p in other["question_activity"]) == 0

@@ -1,9 +1,12 @@
 """PDF validation and page-aware text extraction (PyMuPDF). OCR is not supported."""
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
 import pymupdf
+
+from app.core.config import settings
 
 MIN_USEFUL_CHARACTERS = 20
 
@@ -43,6 +46,8 @@ def validate_pdf(path: Path) -> int:
     """Confirms the file parses as a PDF and returns its page count."""
     doc = _open(path)
     try:
+        if doc.page_count > settings.max_pdf_pages:
+            raise PdfError("TOO_MANY_PAGES", f"This PDF has more than {settings.max_pdf_pages} pages, which is the limit.")
         return doc.page_count
     finally:
         doc.close()
@@ -70,3 +75,38 @@ def extract_pages(path: Path) -> list[PageText]:
             "No extractable text was found. This PDF may contain only scanned images; OCR is not supported yet.",
         )
     return pages
+
+
+@dataclass
+class TextUnit:
+    page_number: int  # 1-based
+    text: str
+
+
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9\"'(\[])")
+
+
+def extract_units(path: Path, max_units: int = 20000) -> list[TextUnit]:
+    """Reading-order text units for version comparison: each paragraph/text block of each page, split into sentences.
+    Paragraph structure is kept (unlike extract_pages, which flattens a page). Returns [] for a PDF without text."""
+    doc = _open(path)
+    units: list[TextUnit] = []
+    try:
+        for index in range(doc.page_count):
+            for block in doc[index].get_text("blocks", sort=True):
+                if block[6] != 0:  # images and other non-text blocks
+                    continue
+                text = " ".join(str(block[4]).split())
+                for sentence in _SENTENCE_END.split(text):
+                    sentence = sentence.strip()
+                    if sentence:
+                        units.append(TextUnit(index + 1, sentence))
+                if len(units) > max_units:
+                    return units
+    except PdfError:
+        raise
+    except Exception as exc:
+        raise PdfError("INVALID_PDF", "Text could not be extracted from this PDF.") from exc
+    finally:
+        doc.close()
+    return units

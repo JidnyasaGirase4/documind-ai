@@ -46,14 +46,39 @@ class Settings(BaseSettings):
     chroma_persist_directory: str = "./data/chroma"
     upload_directory: str = "./data/uploads"
     max_upload_size_mb: int = 20
+    max_pdf_pages: int = 1000  # rejects PDFs that would take unreasonably long to process
     chunk_size: int = 800
     chunk_overlap: int = 120
     top_k_results: int = 5
+    # Upper bound on sources sent to the LLM when a question spans several documents.
+    multi_doc_max_sources: int = 8
+    max_documents_per_question: int = 20
     # Only a floor that drops completely unrelated chunks. Short questions score low against long chunks, so a
     # high cutoff rejects valid questions; the LLM decides whether the passages really answer (INSUFFICIENT_EVIDENCE).
     retrieval_min_similarity: float = 0.05
 
+    # Search (POST /search). Hybrid ranking is reciprocal rank fusion: score = sum(weight / (rrf_k + rank)).
+    search_rrf_k: int = 60
+    search_keyword_weight: float = 1.0
+    search_semantic_weight: float = 1.0
+    search_candidates: int = 100  # best N passages taken from each method before merging (bounds work and memory)
+    search_snippet_chars: int = 260
+
+    # Content review and conflict detection
+    review_due_soon_days: int = 14  # a review is "due" from this many days before its date
+    conflict_min_similarity: float = 0.5  # passages less similar than this are not compared at all
+    conflict_max_pairs: int = 12  # at most this many passage pairs are sent to the model per analysis (cost bound)
+    conflict_max_passages: int = 40  # source passages examined per analysis
+    conflict_neighbours: int = 3
+
     rate_limit_enabled: bool = True
+
+    # Background processing (a persistent MySQL-backed queue; see app/services/job_service.py)
+    worker_embedded: bool = True  # run one worker thread inside the API process; set false when running `python -m app.worker`
+    worker_poll_seconds: float = 2.0
+    job_max_attempts: int = 3
+    job_retry_base_seconds: float = 15.0  # backoff = base * 3^(attempt-1)
+    job_stale_after_seconds: float = 600.0  # a `processing` job with no heartbeat for this long is considered abandoned
 
     @model_validator(mode="after")
     def _validate(self) -> "Settings":

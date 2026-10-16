@@ -18,7 +18,8 @@ import { useDebounce } from '../../hooks/useDebounce'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { usePolling } from '../../hooks/usePolling'
 import { useToast } from '../../context/ToastContext'
-import { documentService } from '../../services'
+import { OrganizeDocumentDialog } from '../../components/knowledge/OrganizeDocumentDialog'
+import { documentService, knowledgeService } from '../../services'
 import { DOCUMENT_POLL_INTERVAL_MS } from '../../utils/config'
 
 const PAGE_SIZE = 10
@@ -36,6 +37,11 @@ export default function Documents() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [sort, setSort] = useState('created_at:desc')
+  const [scope, setScope] = useState('owned')
+  const [collectionId, setCollectionId] = useState('')
+  const [categoryId, setCategoryId] = useState('')
+  const [tagId, setTagId] = useState('')
+  const [toOrganize, setToOrganize] = useState(null)
   const [page, setPage] = useState(1)
   const [uploads, setUploads] = useState([])
   const [toDelete, setToDelete] = useState(null)
@@ -46,13 +52,23 @@ export default function Documents() {
 
   const { sortBy, sortOrder } = SORTS[sort]
   const { data, error, loading, reload } = useAsync(
-    () => documentService.listDocuments({ page, pageSize: PAGE_SIZE, search: debouncedSearch, status, sortBy, sortOrder }),
-    [page, debouncedSearch, status, sort],
+    () => documentService.listDocuments({ page, pageSize: PAGE_SIZE, search: debouncedSearch, status, sortBy, sortOrder, collectionId, categoryId, tagId, scope }),
+    [page, debouncedSearch, status, sort, collectionId, categoryId, tagId, scope],
   )
 
   useEffect(() => {
     setPage(1)
-  }, [debouncedSearch, status, sort])
+  }, [debouncedSearch, status, sort, collectionId, categoryId, tagId, scope])
+
+  // Filter choices. A failure here only hides the extra filters; the document list still works.
+  const filterOptions = useAsync(
+    () =>
+      Promise.all([knowledgeService.listCollections({ pageSize: 100, sortBy: 'name', sortOrder: 'asc' }), knowledgeService.listCategories(), knowledgeService.listTags()]).then(
+        ([collections, categories, tags]) => ({ collections: collections.items, categories, tags }),
+      ),
+    [],
+  )
+  const opts = filterOptions.data
 
   // Poll quietly while any listed document is still being processed.
   const hasInProgress = Boolean(data?.items.some((d) => isInProgress(d.status)))
@@ -113,7 +129,7 @@ export default function Documents() {
   }
 
   const uploading = uploads.some((u) => u.state === 'uploading')
-  const filtered = Boolean(debouncedSearch || status)
+  const filtered = Boolean(debouncedSearch || status || collectionId || categoryId || tagId || scope !== 'owned')
 
   return (
     <>
@@ -123,12 +139,17 @@ export default function Documents() {
 
       <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-end">
         <SearchInput className="sm:flex-1" value={search} onChange={setSearch} placeholder="Search by filename" label="Search documents by filename" />
-        <div className="grid grid-cols-2 gap-3 sm:w-auto">
+        <div className="grid grid-cols-3 gap-3 sm:w-auto">
+          <Select label="Show" labelHidden value={scope} onChange={(e) => setScope(e.target.value)}>
+            <option value="owned">My uploads</option>
+            <option value="shared">Shared with me</option>
+            <option value="all">Everything I can access</option>
+          </Select>
           <Select label="Status" labelHidden value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">All statuses</option>
-            <option value="ready">Ready</option>
+            <option value="ready">Completed</option>
             <option value="processing">Processing</option>
-            <option value="uploaded">Queued</option>
+            <option value="queued">Queued</option>
             <option value="failed">Failed</option>
           </Select>
           <Select label="Sort by" labelHidden value={sort} onChange={(e) => setSort(e.target.value)}>
@@ -140,6 +161,36 @@ export default function Documents() {
           </Select>
         </div>
       </div>
+
+      {opts && (opts.collections.length > 0 || opts.categories.length > 0 || opts.tags.length > 0) && (
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Select label="Collection" labelHidden value={collectionId} onChange={(e) => setCollectionId(e.target.value)}>
+            <option value="">All collections</option>
+            {opts.collections.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
+          <Select label="Category" labelHidden value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+            <option value="">All categories</option>
+            <option value="0">Uncategorised</option>
+            {opts.categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
+          <Select label="Tag" labelHidden value={tagId} onChange={(e) => setTagId(e.target.value)}>
+            <option value="">All tags</option>
+            {opts.tags.map((t) => (
+              <option key={t.id} value={t.id}>
+                #{t.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
 
       <div className="mt-4">
         {loading ? (
@@ -158,6 +209,10 @@ export default function Documents() {
                   onClick={() => {
                     setSearch('')
                     setStatus('')
+                    setScope('owned')
+                    setCollectionId('')
+                    setCategoryId('')
+                    setTagId('')
                   }}
                 >
                   Clear filters
@@ -180,6 +235,7 @@ export default function Documents() {
                   busy={retryingId === d.id}
                   onDelete={setToDelete}
                   onRetry={retry}
+                  onOrganize={setToOrganize}
                   onPreview={() => navigate(`/app/documents/${d.id}`)}
                 />
               ))}
@@ -188,6 +244,19 @@ export default function Documents() {
           </>
         )}
       </div>
+
+      <OrganizeDocumentDialog
+        open={Boolean(toOrganize)}
+        doc={toOrganize}
+        onClose={() => setToOrganize(null)}
+        onSave={async (values) => {
+          await documentService.updateMetadata(toOrganize.id, values)
+          toast.success('Document updated.')
+          setToOrganize(null)
+          reload({ silent: true })
+          filterOptions.reload({ silent: true })
+        }}
+      />
 
       <ConfirmDialog
         open={Boolean(toDelete)}

@@ -1,17 +1,21 @@
 import { Link } from 'react-router-dom'
-import { Eye, FileText, MoreVertical, RotateCw, Trash2 } from 'lucide-react'
+import { Eye, FileText, FolderTree, MoreVertical, RotateCw, Trash2 } from 'lucide-react'
 import { DocumentStatusBadge } from './DocumentStatusBadge'
+import { JobProgress } from './JobProgress'
+import { Badge } from '../common/Badge'
 import { Dropdown } from '../common/Dropdown'
 import { Tooltip } from '../common/Tooltip'
-import { formatBytes, formatDate } from '../../utils/format'
+import { formatBytes, formatDate, pluralize } from '../../utils/format'
 
 // Responsive list row: on phones the name gets the full width and the status/actions sit
 // underneath; from the sm breakpoint everything is on one line.
-export function DocumentRow({ doc, onDelete, onRetry, onPreview, busy }) {
+export function DocumentRow({ doc, onDelete, onRetry, onPreview, onOrganize, busy }) {
+  const canEdit = doc.role !== 'viewer'
   const items = [
     { label: 'View details', icon: Eye, onClick: onPreview },
-    ...(doc.status === 'failed' ? [{ label: 'Retry processing', icon: RotateCw, onClick: () => onRetry(doc), disabled: busy }] : []),
-    { label: 'Delete', icon: Trash2, danger: true, onClick: () => onDelete(doc) },
+    ...(onOrganize && canEdit ? [{ label: 'Organize', icon: FolderTree, onClick: () => onOrganize(doc) }] : []),
+    ...(doc.status === 'failed' && canEdit ? [{ label: 'Retry processing', icon: RotateCw, onClick: () => onRetry(doc), disabled: busy }] : []),
+    ...(doc.isOwner === false ? [] : [{ label: 'Delete', icon: Trash2, danger: true, onClick: () => onDelete(doc) }]),
   ]
 
   return (
@@ -26,9 +30,28 @@ export function DocumentRow({ doc, onDelete, onRetry, onPreview, busy }) {
           </Link>
           <p className="mt-0.5 text-xs text-muted">
             {formatBytes(doc.size)} · Uploaded {formatDate(doc.createdAt)}
-            {doc.pages ? ` · ${doc.pages} pages` : ''}
+            {doc.pages ? ` · ${pluralize(doc.pages, 'page')}` : ''}
+            {doc.isOwner === false ? ` · Shared with you (${doc.role})` : ''}
           </p>
-          {doc.status === 'failed' && doc.error && <p className="mt-1 text-xs text-danger">{doc.error}</p>}
+          {(doc.category || doc.tags?.length > 0) && (
+            <ul className="mt-1.5 flex flex-wrap gap-1.5" aria-label="Category and tags">
+              {doc.category && (
+                <li>
+                  <Badge tone="brand">{doc.category.name}</Badge>
+                </li>
+              )}
+              {(doc.tags ?? []).map((t) => (
+                <li key={t.id}>
+                  <Badge>#{t.name}</Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+          {doc.job ? (
+            <JobProgress doc={doc} onRetry={onRetry} retrying={busy} />
+          ) : (
+            doc.status === 'failed' && doc.error && <p className="mt-1 text-xs text-danger">{doc.error}</p>
+          )}
         </div>
       </div>
       <div className="flex shrink-0 items-center justify-between gap-2 border-t border-line pt-3 sm:justify-end sm:border-0 sm:pt-0">

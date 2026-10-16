@@ -37,18 +37,32 @@ def vector_id_for(chunk_id: int) -> str:
     return f"chunk-{chunk_id}"
 
 
-def add_chunks(*, user_id: int, document_id: int, chunk_ids: list[int], pages: list[int], texts: list[str], embeddings: list[list[float]]) -> list[str]:
+def add_chunks(*, user_id: int, document_id: int, chunk_ids: list[int], pages: list[int], texts: list[str], embeddings: list[list[float]], version_id: int | None = None) -> list[str]:
+    """Indexes chunks. Each vector records the document AND the exact version it was extracted from. `upsert` makes
+    re-indexing the same chunk ids idempotent."""
     ids = [vector_id_for(c) for c in chunk_ids]
-    metadatas = [{"user_id": user_id, "document_id": document_id, "page_number": p, "chunk_id": c} for p, c in zip(pages, chunk_ids)]
-    _collection().add(ids=ids, embeddings=embeddings, documents=texts, metadatas=metadatas)
+    metadatas = [{"user_id": user_id, "document_id": document_id, "page_number": p, "chunk_id": c, **({"version_id": version_id} if version_id is not None else {})} for p, c in zip(pages, chunk_ids)]
+    _collection().upsert(ids=ids, embeddings=embeddings, documents=texts, metadatas=metadatas)
     return ids
 
 
-def query(*, embedding: list[float], user_id: int, document_ids: list[int], k: int) -> list[Hit]:
-    """Nearest chunks that belong to `user_id` AND to one of `document_ids`."""
+def delete_chunk_ids(chunk_ids: list[int]) -> None:
+    """Removes specific vectors (by MySQL chunk id), whether or not they carry version metadata."""
+    if chunk_ids:
+        _collection().delete(ids=[vector_id_for(c) for c in chunk_ids])
+
+
+def delete_version(version_id: int) -> None:
+    _collection().delete(where={"version_id": {"$eq": version_id}})
+
+
+def query(*, embedding: list[float], document_ids: list[int], k: int, user_id: int | None = None) -> list[Hit]:
+    """Nearest chunks of the given documents. `document_ids` must already be authorised by the caller (see access_service);
+    `user_id`, when given, additionally restricts to chunks indexed for that uploader."""
     if not document_ids:
         return []
-    where = {"$and": [{"user_id": {"$eq": user_id}}, {"document_id": {"$in": list(document_ids)}}]}
+    in_docs = {"document_id": {"$in": list(document_ids)}}
+    where = {"$and": [{"user_id": {"$eq": user_id}}, in_docs]} if user_id is not None else in_docs
     result = _collection().query(query_embeddings=[embedding], n_results=k, where=where, include=["documents", "metadatas", "distances"])
     hits: list[Hit] = []
     for vid, doc, meta, dist in zip(result["ids"][0], result["documents"][0], result["metadatas"][0], result["distances"][0]):

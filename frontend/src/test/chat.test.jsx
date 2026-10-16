@@ -73,7 +73,7 @@ describe('citation rendering', () => {
     })
     renderWithProviders(<ChatMessage message={message} onOpenCitation={onOpen} />, { withAuth: false })
     await userEvent.click(screen.getByRole('button', { name: /open handbook\.pdf, page 2/i }))
-    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ documentId: 7, page: 2 }))
+    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ documentId: 7, page: 2 }), expect.any(Array))
   })
 
   it('renders no sources section when none are returned', () => {
@@ -126,6 +126,29 @@ describe('Assistant chat', () => {
     expect(await screen.findByText('The AI service is temporarily unavailable.')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /retry/i }))
     expect(await screen.findByText('Recovered answer')).toBeInTheDocument()
+  })
+
+  it('lets the user pick several documents and sends exactly that selection', async () => {
+    documentService.listDocuments.mockResolvedValue(
+      page([
+        { id: 7, filename: 'policy-2023.pdf', status: 'ready' },
+        { id: 8, filename: 'policy-2024.pdf', status: 'ready' },
+      ]),
+    )
+    conversationService.sendMessage.mockResolvedValue({
+      userMessage: null,
+      assistantMessage: normalizeMessage({ id: 5, role: 'assistant', content: 'They differ.', citations: [] }),
+    })
+    renderWithProviders(<Tree />, { route: '/app/assistant', withAuth: false })
+    await userEvent.click(await screen.findByRole('button', { name: /all my documents/i }))
+    await userEvent.click(screen.getByRole('button', { name: /select all \(2\)/i }))
+    expect(await screen.findByTestId('multi-doc-banner')).toHaveTextContent('Comparing 2 documents')
+    await userEvent.keyboard('{Escape}')
+    const box = screen.getByLabelText('Ask a question about your documents')
+    await userEvent.type(box, 'Compare leave{Enter}')
+    await waitFor(() =>
+      expect(conversationService.sendMessage).toHaveBeenCalledWith('c1', { content: 'Compare leave', documentIds: [7, 8] }),
+    )
   })
 
   it('tells the user to upload a document when none are ready', async () => {

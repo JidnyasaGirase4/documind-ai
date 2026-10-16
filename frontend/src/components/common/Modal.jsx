@@ -9,6 +9,10 @@ export function Modal({ open, onClose, title, description, children, footer, siz
   const titleId = useId()
   const panelRef = useRef(null)
   const lastFocused = useRef(null)
+  // Kept in a ref so a new onClose function on every parent render does not re-run the focus logic below
+  // (that would pull focus back to the first control after every keystroke).
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   useEffect(() => {
     if (!open) return undefined
@@ -22,7 +26,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
     const onKey = (e) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
-        onClose()
+        onCloseRef.current()
       } else if (e.key === 'Tab' && panel) {
         const items = [...panel.querySelectorAll(FOCUSABLE)]
         if (!items.length) return
@@ -43,10 +47,10 @@ export function Modal({ open, onClose, title, description, children, footer, siz
       document.body.style.overflow = prevOverflow
       lastFocused.current?.focus?.()
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
-  const width = size === 'lg' ? 'max-w-2xl' : 'max-w-md'
+  const width = size === 'xl' ? 'max-w-5xl' : size === 'lg' ? 'max-w-2xl' : 'max-w-md'
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">

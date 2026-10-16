@@ -1,0 +1,33 @@
+{
+  "name": "documind-synthetic-qa",
+  "version": "1.0",
+  "description": "Small synthetic corpus written for this project. Labels (relevant document/page) are hand-assigned, so retrieval metrics against them are measured, not estimated.",
+  "documents": {
+    "leave-policy.pdf": [
+      "Annual leave. Full-time employees accrue twenty days of paid annual leave per calendar year. Unused leave of up to five days may be carried over into the next year.",
+      "Parental leave. Primary caregivers are entitled to sixteen weeks of paid parental leave. Secondary caregivers receive six weeks of paid leave. Leave must begin within twelve months of the birth or adoption."
+    ],
+    "expenses-guide.pdf": [
+      "Travel expenses. Employees must book flights at least fourteen days in advance. Economy class is required for flights shorter than six hours.",
+      "Meals and lodging. The daily meal allowance is forty five dollars. Hotel stays are reimbursed up to one hundred and fifty dollars per night with an itemised receipt."
+    ],
+    "security-handbook.pdf": [
+      "Passwords. Passwords must contain at least fourteen characters and be changed every ninety days. Multi factor authentication is mandatory for all remote access.",
+      "Incident response. Suspected security incidents must be reported to the security team within one hour. The security team will open an incident ticket and contain affected systems."
+    ]
+  },
+  "questions": [
+    {"id": "q01", "category": "single_fact", "question": "How many days of paid annual leave do full-time employees accrue per year?", "answerable": true, "expected_answer": "Twenty days.", "expected_keywords": ["twenty"], "relevant": [{"document": "leave-policy.pdf", "page": 1}]},
+    {"id": "q02", "category": "single_fact", "question": "How many weeks of paid parental leave do primary caregivers get?", "answerable": true, "expected_answer": "Sixteen weeks.", "expected_keywords": ["sixteen"], "relevant": [{"document": "leave-policy.pdf", "page": 2}]},
+    {"id": "q03", "category": "single_fact", "question": "How many days of unused leave can be carried over?", "answerable": true, "expected_answer": "Up to five days.", "expected_keywords": ["five"], "relevant": [{"document": "leave-policy.pdf", "page": 1}]},
+    {"id": "q04", "category": "single_fact", "question": "How far in advance must flights be booked?", "answerable": true, "expected_answer": "At least fourteen days in advance.", "expected_keywords": ["fourteen"], "relevant": [{"document": "expenses-guide.pdf", "page": 1}]},
+    {"id": "q05", "category": "single_fact", "question": "What is the daily meal allowance?", "answerable": true, "expected_answer": "Forty five dollars.", "expected_keywords": ["forty"], "relevant": [{"document": "expenses-guide.pdf", "page": 2}]},
+    {"id": "q06", "category": "single_fact", "question": "What is the maximum hotel reimbursement per night?", "answerable": true, "expected_answer": "One hundred and fifty dollars per night.", "expected_keywords": ["hundred", "fifty"], "relevant": [{"document": "expenses-guide.pdf", "page": 2}]},
+    {"id": "q07", "category": "single_fact", "question": "How often must passwords be changed and how long must they be?", "answerable": true, "expected_answer": "Every ninety days, at least fourteen characters.", "expected_keywords": ["ninety", "fourteen"], "relevant": [{"document": "security-handbook.pdf", "page": 1}]},
+    {"id": "q08", "category": "single_fact", "question": "Within what time must a suspected security incident be reported?", "answerable": true, "expected_answer": "Within one hour.", "expected_keywords": ["hour"], "relevant": [{"document": "security-handbook.pdf", "page": 2}]},
+    {"id": "q09", "category": "cross_document", "question": "What are the rules for remote access authentication and for booking flights?", "answerable": true, "expected_answer": "Multi factor authentication is mandatory for remote access; flights must be booked fourteen days in advance.", "expected_keywords": ["multi", "fourteen"], "relevant": [{"document": "security-handbook.pdf", "page": 1}, {"document": "expenses-guide.pdf", "page": 1}]},
+    {"id": "q10", "category": "cross_document", "question": "Compare secondary caregiver leave with the hotel allowance: what figures does each document give?", "answerable": true, "expected_answer": "Six weeks of paid leave; hotel up to one hundred and fifty dollars per night.", "expected_keywords": ["six", "fifty"], "relevant": [{"document": "leave-policy.pdf", "page": 2}, {"document": "expenses-guide.pdf", "page": 2}]},
+    {"id": "q11", "category": "unanswerable", "question": "What is the company policy on bringing pets to the office?", "answerable": false, "expected_answer": null, "relevant": []},
+    {"id": "q12", "category": "unanswerable", "question": "What is the annual bonus percentage for senior managers?", "answerable": false, "expected_answer": null, "relevant": []}
+  ]
+}

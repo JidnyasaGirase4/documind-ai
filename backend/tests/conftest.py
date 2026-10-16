@@ -22,6 +22,8 @@ os.environ.update(
         "CHROMA_PERSIST_DIRECTORY": str(_TMP / "chroma"),
         "RETRIEVAL_MIN_SIMILARITY": "0.2",
         "RATE_LIMIT_ENABLED": "false",
+        "WORKER_EMBEDDED": "false",  # tests run queued jobs explicitly with worker.drain()
+        "JOB_RETRY_BASE_SECONDS": "0",
         "FRONTEND_ORIGIN": "http://localhost:5173",
     }
 )
@@ -36,11 +38,12 @@ from sqlalchemy import text  # noqa: E402
 from app.core.config import BACKEND_DIR  # noqa: E402
 from app.db.session import engine  # noqa: E402
 from app.main import app  # noqa: E402
+from app import worker  # noqa: E402
 from app.services import vector_service  # noqa: E402
 from app.utils import rate_limit  # noqa: E402
 
 API = "/api/v1"
-TABLES_IN_DELETE_ORDER = ["messages", "conversations", "processing_jobs", "document_chunks", "documents", "users"]
+TABLES_IN_DELETE_ORDER = ["conflict_decisions", "document_conflicts", "conflict_reports", "document_review_history", "document_reviews", "eval_results", "eval_runs", "message_feedback", "query_logs", "messages", "conversations", "processing_jobs", "document_chunks", "collection_members", "collection_documents", "document_tags", "collections", "tags", "document_versions", "documents", "categories", "users"]
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -105,9 +108,14 @@ def new_user(client: TestClient, email: str) -> dict:
     return login_headers(client, email)
 
 
-def upload(client: TestClient, headers: dict, pages: list[str] | bytes, filename: str = "doc.pdf", content_type: str = "application/pdf"):
+def upload(client: TestClient, headers: dict, pages: list[str] | bytes, filename: str = "doc.pdf", content_type: str = "application/pdf", run_worker: bool = True):
+    """Uploads a PDF. The response is returned as the API sent it (job still queued); by default the background worker
+    then runs the queued jobs, so tests can look at the finished result. Pass run_worker=False to inspect the queue."""
     data = pages if isinstance(pages, bytes) else make_pdf(pages)
-    return client.post(f"{API}/documents/upload", files={"file": (filename, data, content_type)}, headers=headers)
+    response = client.post(f"{API}/documents/upload", files={"file": (filename, data, content_type)}, headers=headers)
+    if run_worker:
+        worker.drain()
+    return response
 
 
 def ready_document(client: TestClient, headers: dict, pages: list[str], filename: str = "doc.pdf") -> dict:

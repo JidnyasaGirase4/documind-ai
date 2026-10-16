@@ -8,12 +8,12 @@ import { Skeleton } from '../../components/common/LoadingSkeleton'
 import { ChatMessage } from '../../components/chat/ChatMessage'
 import { ChatComposer } from '../../components/chat/ChatComposer'
 import { DocumentSelector } from '../../components/chat/DocumentSelector'
+import { CitationViewer } from '../../components/viewer/CitationViewer'
 import { useAsync } from '../../hooks/useAsync'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useToast } from '../../context/ToastContext'
 import { conversationService, documentService } from '../../services'
 import { cx, formatDateTime, formatRelative } from '../../utils/format'
-import { openDocumentPreview } from '../../utils/preview'
 
 // Questions that make sense for any document (the assistant answers these from the start of the document).
 const EXAMPLES = ['Summarize this document in a few sentences.', 'What are the key points?', 'What is this document about?']
@@ -33,6 +33,7 @@ export default function Assistant() {
   const [panelOpen, setPanelOpen] = useState(false)
   const [toDelete, setToDelete] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  const [viewer, setViewer] = useState(null) // { citations, index } while the PDF viewer is open
 
   const composerRef = useRef(null)
   const logEndRef = useRef(null)
@@ -41,7 +42,7 @@ export default function Assistant() {
   const tmpId = useRef(0)
   const sendingRef = useRef(false)
 
-  const readyDocs = useAsync(async () => (await documentService.listDocuments({ pageSize: 100, status: 'ready' })).items, [])
+  const readyDocs = useAsync(async () => (await documentService.listDocuments({ pageSize: 100, status: 'ready', scope: 'all' })).items, [])
   const convList = useAsync(async () => (await conversationService.listConversations({ pageSize: 30 })).items, [])
 
   const loadConversation = useCallback(async (id) => {
@@ -126,12 +127,18 @@ export default function Assistant() {
     }
   }
 
-  const openCitation = async (c) => {
-    try {
-      await openDocumentPreview(c.documentId, c.page)
-    } catch (err) {
-      toast.error(err.message)
-    }
+  const patchMessage = (id, feedback) => setMessages((m) => m.map((x) => (x.id === id ? { ...x, feedback } : x)))
+  const giveFeedback = async (msg, f) => {
+    patchMessage(msg.id, await conversationService.setFeedback(conversationId ?? conversation?.id, msg.id, f))
+  }
+  const removeFeedback = async (msg) => {
+    await conversationService.clearFeedback(conversationId ?? conversation?.id, msg.id)
+    patchMessage(msg.id, null)
+  }
+
+  const openCitation = (c, all) => {
+    const list = all?.length ? all : [c]
+    setViewer({ citations: list, index: Math.max(0, list.indexOf(c)) })
   }
 
   const confirmDelete = async () => {
@@ -253,6 +260,27 @@ export default function Assistant() {
           </div>
         </div>
 
+        {selectedDocs.length > 1 && (
+          <div className="flex flex-wrap items-center gap-2 border-b border-line bg-brand-50/60 px-4 py-2 text-xs text-brand-800" data-testid="multi-doc-banner">
+            <span className="font-medium">Comparing {selectedDocs.length} documents:</span>
+            {selectedDocs.map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setSelectedDocs((cur) => cur.filter((x) => x !== id))}
+                disabled={sending}
+                title="Remove from this question"
+                className="inline-flex max-w-[14rem] items-center gap-1 rounded-full border border-brand-200 bg-surface px-2.5 py-0.5 hover:bg-brand-100 disabled:opacity-60"
+              >
+                <span className="truncate">{docs.find((d) => d.id === id)?.filename ?? `Document ${id}`}</span>
+                <span aria-hidden="true">×</span>
+                <span className="sr-only">Remove</span>
+              </button>
+            ))}
+            <span className="text-muted">Each answer cites its document and page; conflicts between documents are called out.</span>
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto px-4 py-5" role="log" aria-live="polite" aria-label="Conversation messages">
           {loadingConv ? (
             <div className="space-y-4" role="status" aria-label="Loading conversation">
@@ -307,6 +335,8 @@ export default function Assistant() {
                   onCopy={m.role === 'assistant' ? copy : undefined}
                   onRetry={(msg) => send(msg.content, msg)}
                   onOpenCitation={openCitation}
+                  onFeedback={m.role === 'assistant' ? giveFeedback : undefined}
+                  onClearFeedback={removeFeedback}
                   onFollowUp={i === messages.length - 1 && !sending ? (q) => send(q) : undefined}
                 />
               ))}
@@ -336,6 +366,14 @@ export default function Assistant() {
           </div>
         </div>
       </section>
+
+      <CitationViewer
+        open={Boolean(viewer)}
+        onClose={() => setViewer(null)}
+        citations={viewer?.citations ?? []}
+        index={viewer?.index ?? 0}
+        onIndexChange={(i) => setViewer((v) => (v ? { ...v, index: i } : v))}
+      />
 
       <ConfirmDialog
         open={Boolean(toDelete)}

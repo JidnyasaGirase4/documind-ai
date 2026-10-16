@@ -1,5 +1,6 @@
-import { useLocation, useNavigate } from 'react-router-dom'
-import { ChevronDown, LogOut, Menu, Settings } from 'lucide-react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { ChevronDown, LogOut, Menu, Search, Settings } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { Dropdown } from '../common/Dropdown'
 import { itemForPath } from './navItems'
@@ -22,6 +23,15 @@ export function AppHeader({ onOpenMenu }) {
   const navigate = useNavigate()
   const current = itemForPath(pathname)
   const Icon = current?.icon
+  const [term, setTerm] = useState('')
+
+  const submitSearch = (e) => {
+    e.preventDefault()
+    const q = term.trim()
+    if (!q) return
+    navigate(`/app/search?q=${encodeURIComponent(q)}`)
+    setTerm('')
+  }
 
   const handleLogout = () => {
     logout()
@@ -47,6 +57,25 @@ export function AppHeader({ onOpenMenu }) {
           )}
           <p className="truncate text-sm font-bold text-ink">{current?.label ?? 'DocuMind AI'}</p>
         </div>
+
+        <form onSubmit={submitSearch} role="search" aria-label="Search all documents" className="relative hidden max-w-md flex-1 md:block">
+          <label htmlFor="global-search" className="sr-only">
+            Search all documents
+          </label>
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden="true" />
+          <input
+            id="global-search"
+            type="search"
+            value={term}
+            maxLength={300}
+            onChange={(e) => setTerm(e.target.value)}
+            placeholder="Search all documents…"
+            className="h-9 w-full rounded-full border border-line bg-stone-50 pl-9 pr-3 text-sm text-ink placeholder:text-stone-400 focus:bg-surface [&::-webkit-search-cancel-button]:hidden"
+          />
+        </form>
+        <Link to="/app/search" aria-label="Search" className="rounded-lg p-1.5 text-ink hover:bg-stone-100 md:hidden">
+          <Search className="h-5 w-5" aria-hidden="true" />
+        </Link>
 
         <Dropdown
           label="Account menu"

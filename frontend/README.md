@@ -1,7 +1,8 @@
 # DocuMind AI — Frontend
 
 React + Vite + Tailwind CSS single-page app for the DocuMind AI document Q&A platform. It talks to the separate
-FastAPI backend; see [docs/API_CONTRACT.md](docs/API_CONTRACT.md) for the endpoints and response shapes it expects.
+FastAPI backend; see [docs/API_CONTRACT.md](docs/API_CONTRACT.md) for the original contract (documents, chat, analytics) and the backend's `/docs` (OpenAPI) for the
+current, complete API including collections, sharing, search, versions, reviews and conflicts. The project overview is in the root [README](../README.md).
 
 ## Setup
 
@@ -13,7 +14,7 @@ npm run dev              # http://localhost:5173
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `VITE_API_BASE_URL` | `http://127.0.0.1:8000` | Backend origin (the app appends `/api/v1`). |
+| `VITE_API_BASE_URL` | `http://127.0.0.1:8000` | Backend origin (the app appends `/api/v1`). Must match the port the API runs on (`backend/run.bat` uses 8001). |
 | `VITE_MAX_UPLOAD_MB` | `25` | Size limit *displayed* and pre-checked on upload. The backend enforces the real limit. |
 
 The backend must allow the frontend origin in its CORS settings (e.g. `http://localhost:5173`).
@@ -31,7 +32,7 @@ The backend must allow the frontend origin in its CORS settings (e.g. `http://lo
 
 ```
 src/
-  components/{common,layout,documents,chat,marketing}   reusable UI
+  components/{common,layout,documents,chat,knowledge,versions,reviews,viewer,analytics,marketing}   reusable UI
   layouts/        PublicLayout, AppLayout (sidebar + header)
   pages/{public,app}
   routes/         AppRoutes, ProtectedRoute
@@ -53,7 +54,8 @@ src/
 - **Public pages** use illustrative sample content that is labelled as an example. Privacy/Terms are marked as
   placeholders in the footer because no legal pages exist.
 - Not implemented because the API contract has no endpoint for them: password change, account deletion, notifications,
-  global search, analytics date ranges.
+  analytics date ranges. (Search across documents, collections/sharing, version history, reviews and conflict findings were added later and use the
+  endpoints listed in the backend's OpenAPI document.)
 
 ## Security notes
 

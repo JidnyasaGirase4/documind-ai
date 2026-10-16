@@ -1,5 +1,6 @@
 import { AlertCircle, Copy, RotateCw, Sparkles } from 'lucide-react'
 import { SourceCitationCard } from './SourceCitationCard'
+import { FeedbackControls } from './FeedbackControls'
 import { formatDateTime } from '../../utils/format'
 
 const MARKER = /\[S(\d+)\]/g
@@ -18,7 +19,7 @@ function withCitations(text, citations, onOpen) {
         key={`${m.index}-${n}`}
         type="button"
         disabled={!citation || !onOpen}
-        onClick={() => citation && onOpen?.(citation)}
+        onClick={() => citation && onOpen?.(citation, citations)}
         title={citation ? `Source ${n}: ${citation.documentName ?? 'document'}, page ${citation.page}` : undefined}
         className="mx-0.5 inline-flex h-[18px] min-w-[18px] -translate-y-0.5 items-center justify-center rounded-full bg-brand-50 px-1 text-[11px] font-semibold leading-none text-brand-700 ring-1 ring-brand-200 enabled:hover:bg-brand-100 disabled:cursor-default"
       >
@@ -57,7 +58,7 @@ function AnswerText({ content, citations, onOpen }) {
 }
 
 // message: { role, content, citations[], followUps[], createdAt, status?: 'sending' | 'failed' }
-export function ChatMessage({ message, onCopy, onRetry, onOpenCitation, onFollowUp }) {
+export function ChatMessage({ message, onCopy, onRetry, onOpenCitation, onFollowUp, onFeedback, onClearFeedback }) {
   const isUser = message.role === 'user'
 
   if (isUser) {
@@ -104,7 +105,7 @@ export function ChatMessage({ message, onCopy, onRetry, onOpenCitation, onFollow
             <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {message.citations.map((c, i) => (
                 <li key={`${c.documentId}-${c.page}-${c.chunkId ?? i}`}>
-                  <SourceCitationCard citation={c} index={i} onOpen={onOpenCitation} />
+                  <SourceCitationCard citation={c} index={i} onOpen={(x) => onOpenCitation?.(x, message.citations)} />
                 </li>
               ))}
             </ul>
@@ -122,6 +123,9 @@ export function ChatMessage({ message, onCopy, onRetry, onOpenCitation, onFollow
               <Copy className="h-3.5 w-3.5" aria-hidden="true" />
               Copy answer
             </button>
+          )}
+          {onFeedback && typeof message.id === 'number' && (
+            <FeedbackControls feedback={message.feedback} onSubmit={(f) => onFeedback(message, f)} onClear={() => onClearFeedback?.(message)} />
           )}
         </div>
 

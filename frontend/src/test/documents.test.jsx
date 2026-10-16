@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { screen, waitFor, fireEvent } from '@testing-library/react'
+import { screen, waitFor, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from './utils'
 import Documents from '../pages/app/Documents'
@@ -88,6 +88,40 @@ describe('Documents page', () => {
     await userEvent.click(screen.getByRole('button', { name: /actions for report\.pdf/i }))
     await userEvent.click(screen.getByRole('menuitem', { name: /retry processing/i }))
     await waitFor(() => expect(documentService.retryDocument).toHaveBeenCalledWith(1))
+  })
+
+  it('shows real job status: queued, processing with stage and percentage, and completed', async () => {
+    const job = (o) => ({ id: 1, status: 'queued', stage: null, progress: 0, attempts: 0, maxAttempts: 3, error: null, ...o })
+    documentService.listDocuments.mockResolvedValue(
+      page([
+        doc({ id: 1, filename: 'waiting.pdf', status: 'queued', job: job({}) }),
+        doc({ id: 2, filename: 'busy.pdf', status: 'processing', job: job({ status: 'processing', stage: 'embedding', progress: 62, attempts: 2 }) }),
+        doc({ id: 3, filename: 'done.pdf', status: 'ready', job: job({ status: 'completed', progress: 100 }) }),
+      ]),
+    )
+    renderWithProviders(<Documents />, { route: '/app/documents', withAuth: false })
+    expect(await screen.findByText('Waiting in the queue')).toBeInTheDocument()
+    const bars = screen.getAllByRole('progressbar', { name: /^Processing / })
+    expect(bars).toHaveLength(2) // the completed document shows no progress bar
+    expect(screen.getByRole('progressbar', { name: 'Processing busy.pdf' })).toHaveAttribute('aria-valuenow', '62')
+    expect(screen.getByText(/Creating embeddings · attempt 2 of 3/)).toBeInTheDocument()
+    const list = within(screen.getByRole('list', { name: 'Documents' }))
+    expect(list.getByText('Queued')).toBeInTheDocument()
+    expect(list.getByText('Processing')).toBeInTheDocument()
+    expect(list.getByText('Completed')).toBeInTheDocument()
+  })
+
+  it('offers a Retry button on a failed job and calls the API once', async () => {
+    documentService.listDocuments.mockResolvedValue(
+      page([doc({ id: 5, filename: 'bad.pdf', status: 'failed', error: 'x', job: { id: 9, status: 'failed', attempts: 3, maxAttempts: 3, error: 'The embedding model is unavailable.' } })]),
+    )
+    documentService.retryDocument.mockResolvedValue({})
+    renderWithProviders(<Documents />, { route: '/app/documents', withAuth: false })
+    expect(await screen.findByText('The embedding model is unavailable.')).toBeInTheDocument()
+    expect(screen.getByText('(3 attempts)')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /^retry$/i }))
+    await waitFor(() => expect(documentService.retryDocument).toHaveBeenCalledWith(5))
+    expect(documentService.retryDocument).toHaveBeenCalledTimes(1)
   })
 
   it('asks for confirmation before deleting', async () => {

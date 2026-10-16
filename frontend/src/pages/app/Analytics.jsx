@@ -3,13 +3,14 @@ import { PageHeader } from '../../components/common/PageHeader'
 import { ChartCard } from '../../components/common/ChartCard'
 import { ChartSkeleton } from '../../components/common/LoadingSkeleton'
 import { ErrorState } from '../../components/common/ErrorState'
+import { QualityPanel } from '../../components/analytics/QualityPanel'
 import { useAsync } from '../../hooks/useAsync'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { dashboardService } from '../../services'
 import { formatDate } from '../../utils/format'
 
-const STATUS_COLORS = { ready: '#15803d', processing: '#d4a93a', failed: '#d92d20', uploaded: '#a1a1aa' }
-const STATUS_LABELS = { ready: 'Ready', processing: 'Processing', failed: 'Failed', uploaded: 'Queued' }
+const STATUS_COLORS = { ready: '#15803d', processing: '#d4a93a', failed: '#c8281c', uploaded: '#a1a1aa', queued: '#a1a1aa' }
+const STATUS_LABELS = { ready: 'Completed', processing: 'Processing', failed: 'Failed', uploaded: 'Queued', queued: 'Queued' }
 const BRAND = '#8f1d3f'
 
 const total = (rows) => rows.reduce((a, r) => a + (Number(r.count) || 0), 0)
@@ -107,6 +108,7 @@ export default function Analytics() {
           </div>
         </div>
       )}
+      <QualityPanel />
     </>
   )
 }

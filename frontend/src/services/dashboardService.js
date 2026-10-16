@@ -30,3 +30,26 @@ export async function getAnalytics() {
     questions: data.question_activity ?? [],
   }
 }
+
+// Measured from the caller's own stored feedback.
+export async function getFeedbackStats() {
+  const { data } = await http.get('/analytics/feedback')
+  return data
+}
+
+// Measured from the caller's own query log (outcomes, latency percentiles, failure categories).
+export async function getQueryStats() {
+  const { data } = await http.get('/analytics/queries')
+  return data
+}
+
+// Evaluation runs on the synthetic dataset: { latest, history }. Each metric carries a `kind`.
+export async function getEvaluations() {
+  const { data } = await http.get('/analytics/evaluations')
+  return data
+}
+
+export async function getEvaluationRun(id) {
+  const { data } = await http.get(`/analytics/evaluations/${id}`)
+  return data
+}

@@ -25,7 +25,8 @@ export default {
         gold: { 100: '#f8efd4', 400: '#d4a93a', 500: '#b8892b', 600: '#8a6516' },
         success: { DEFAULT: '#15803d', soft: '#eaf6ee' },
         warning: { DEFAULT: '#B45309', soft: '#fef5e6' },
-        danger: { DEFAULT: '#d92d20', soft: '#fdf0ef' },
+        // 5.1:1 on the page background (the previous #d92d20 was 4.4:1, below WCAG AA)
+        danger: { DEFAULT: '#c8281c', soft: '#fdf0ef' },
         // Deep plum: sidebar, hero and dark sections
         plum: { 50: '#f5f4f4', 100: '#e7e4e4', 200: '#cfc9c9', 700: '#382f34', 800: '#272125', 900: '#1c181b', 950: '#141113' },
         sidebar: { DEFAULT: '#1c181b', hover: '#2c2528', border: '#342c30' },

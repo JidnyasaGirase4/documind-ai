@@ -43,3 +43,17 @@ export async function sendMessage(conversationId, { content, documentIds }) {
     assistantMessage: normalizeMessage(assistantRaw),
   }
 }
+
+// Thumbs up/down (+ optional reason and note). Sending again replaces the earlier feedback.
+export async function setFeedback(conversationId, messageId, { rating, category, comment }) {
+  const { data } = await http.put(`/conversations/${conversationId}/messages/${messageId}/feedback`, {
+    rating,
+    category: category || null,
+    comment: comment || null,
+  })
+  return { rating: data.rating, category: data.category ?? null, comment: data.comment ?? null }
+}
+
+export async function clearFeedback(conversationId, messageId) {
+  await http.delete(`/conversations/${conversationId}/messages/${messageId}/feedback`)
+}

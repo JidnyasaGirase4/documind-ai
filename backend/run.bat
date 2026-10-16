@@ -8,4 +8,4 @@ if not exist "%PYTHON%" (
   echo Create it with: python -m venv C:\Users\Jidnyasa\documind-backend-venv ^& then pip install -r requirements.txt
   exit /b 1
 )
-"%PYTHON%" -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+"%PYTHON%" -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8001

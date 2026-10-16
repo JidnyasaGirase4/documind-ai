@@ -8,9 +8,9 @@ const TONES = {
   danger: 'bg-danger-soft text-danger',
 }
 
-export function Badge({ tone = 'neutral', icon: Icon, className, children }) {
+export function Badge({ tone = 'neutral', icon: Icon, className, children, title }) {
   return (
-    <span className={cx('inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium', TONES[tone], className)}>
+    <span title={title} className={cx('inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium', TONES[tone], className)}>
       {Icon && <Icon className="h-3 w-3" aria-hidden="true" />}
       {children}
     </span>

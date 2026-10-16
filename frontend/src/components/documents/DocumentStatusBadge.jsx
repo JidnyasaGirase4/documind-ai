@@ -3,13 +3,14 @@ import { Badge } from '../common/Badge'
 
 export const STATUS_META = {
   uploaded: { label: 'Queued', tone: 'neutral', icon: Clock },
+  queued: { label: 'Queued', tone: 'neutral', icon: Clock },
   processing: { label: 'Processing', tone: 'warning', icon: Loader2 },
-  ready: { label: 'Ready', tone: 'success', icon: CheckCircle2 },
+  ready: { label: 'Completed', tone: 'success', icon: CheckCircle2 },
   failed: { label: 'Failed', tone: 'danger', icon: XCircle },
 }
 
 export function isInProgress(status) {
-  return status === 'uploaded' || status === 'processing'
+  return status === 'uploaded' || status === 'queued' || status === 'processing'
 }
 
 export function DocumentStatusBadge({ status }) {

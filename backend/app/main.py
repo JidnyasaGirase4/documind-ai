@@ -2,7 +2,7 @@ import logging
 import threading
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1 import api_router
@@ -27,7 +27,16 @@ async def lifespan(_: FastAPI):
     # Load the embedding model in the background so the first upload or question is not slow.
     if settings.embedding_provider.lower() == "sentence_transformers":
         threading.Thread(target=_warm_up_embedder, daemon=True, name="embedder-warmup").start()
-    yield
+    stop = None
+    if settings.worker_embedded:
+        from app import worker  # imported lazily: the worker pulls in the whole processing pipeline
+
+        _, stop = worker.start_embedded()
+    try:
+        yield
+    finally:
+        if stop is not None:
+            stop.set()
 
 
 def create_app() -> FastAPI:
@@ -49,10 +58,21 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=False,  # Bearer tokens travel in the Authorization header, not cookies
-        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type"],
     )
     register_error_handlers(app)
+
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        if request.url.path.startswith("/api/"):
+            # API responses can contain private data: never let a shared cache keep them.
+            response.headers.setdefault("Cache-Control", "no-store")
+        return response
     app.include_router(api_router, prefix="/api/v1")
 
     @app.get("/health", tags=["health"])

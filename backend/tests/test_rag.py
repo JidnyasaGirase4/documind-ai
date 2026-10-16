@@ -326,3 +326,39 @@ def test_broad_questions_are_answered_from_the_start_of_the_document(client, mon
         assert r.status_code == 201, question
         assert r.json()["assistant_message"]["citations"], question
     assert len(fake.calls) == 3, "every broad question must reach the model instead of failing the similarity floor"
+
+
+def test_marker_only_reply_is_retried_once_and_then_answers(client, monkeypatch):
+    """A small model once replied with just "[ S1 ]". That is now tolerated (spacing) and retried once for a real sentence."""
+    h, doc, conv = setup_user_with_doc(client)
+    replies = iter(["[ S1 ]", "Primary caregivers get sixteen weeks of paid leave [S1]."])
+    fake = use_llm(monkeypatch, lambda messages: next(replies))
+    r = ask(client, h, conv["id"], "How many weeks of paid parental leave do primary caregivers get?")
+    assert r.status_code == 201, r.text
+    answer = r.json()["assistant_message"]
+    assert "sixteen weeks" in answer["content"] and len(answer["citations"]) == 1
+    assert len(fake.calls) == 2 and "only a source marker" in fake.calls[1][1][-1]["content"]
+
+
+def test_marker_only_twice_is_still_insufficient_evidence_and_never_loops(client, monkeypatch):
+    h, doc, conv = setup_user_with_doc(client)
+    fake = use_llm(monkeypatch, "[ S1 ]")
+    r = ask(client, h, conv["id"], "How many weeks of paid parental leave do primary caregivers get?")
+    assert r.status_code == 201
+    assert r.json()["assistant_message"]["citations"] == [] and "couldn't find enough evidence" in r.json()["assistant_message"]["content"]
+    assert len(fake.calls) == 2  # one retry, never more
+
+
+def test_explicit_refusal_is_not_retried(client, monkeypatch):
+    h, doc, conv = setup_user_with_doc(client)
+    fake = use_llm(monkeypatch, "INSUFFICIENT_EVIDENCE")
+    ask(client, h, conv["id"], "How many weeks of paid parental leave do primary caregivers get?")
+    assert len(fake.calls) == 1
+
+
+def test_spaced_markers_are_normalised():
+    from app.services.rag_service import Source, validate_and_format
+
+    src = [Source(number=1, chunk_id=1, document_id=1, document_name="a.pdf", page_number=1, text="Staff get twenty days of paid leave.", vector_id="chunk-1")]
+    out = validate_and_format("Staff get twenty days of paid leave [ S1 ].", src)
+    assert out.citations and out.citations[0]["page_number"] == 1 and "[S1]" in out.content

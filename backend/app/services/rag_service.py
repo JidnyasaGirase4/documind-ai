@@ -18,7 +18,7 @@ from app.models.document import STATUS_READY
 from app.models.user import User
 from app.repositories import conversation_repository as conv_repo
 from app.repositories import document_repository as doc_repo
-from app.services import vector_service
+from app.services import access_service, vector_service
 from app.services.embedding_service import EmbeddingError, get_embedder
 from app.services.llm_service import get_llm
 
@@ -51,6 +51,13 @@ Staff get 20 days of paid leave per year.
 Question: When does the office open?
 Answer: The office opens at 9am [S1]."""
 
+MULTI_DOCUMENT_RULES = """
+Several documents are involved. Additional rules:
+- Each source names its document. When you state a fact, make clear which document it comes from if more than one document is relevant.
+- If two documents say different things about the same point (different numbers, dates, rules or conclusions), do NOT merge or pick one silently. Say that they conflict, state what each document says with its own marker, and mention a visible reason for the difference only if the sources give one (for example a version or date).
+- If the sources answer only part of the question, answer that part and say plainly which part, or which document, has no information.
+- Never attribute a statement to a document whose source does not contain it."""
+
 ANSWER_REMINDER = (
     "Answer using only the sources above and put the source marker like [S1] after each statement. "
     f"If the sources do not answer the question, reply exactly {INSUFFICIENT_TOKEN}."
@@ -66,12 +73,16 @@ class Source:
     page_number: int
     text: str
     vector_id: str
+    version_id: int | None = None
+    version_number: int | None = None
 
 
 @dataclass
 class Answer:
     content: str
     citations: list[dict]
+    document_count: int = 0  # documents searched
+    source_count: int = 0  # passages sent to the model
 
 
 def _insufficient() -> Answer:
@@ -79,16 +90,19 @@ def _insufficient() -> Answer:
 
 
 def _resolve_scope(db: Session, user: User, document_ids: list[int] | None) -> list[int]:
-    """Document ids the question may search. Everything is checked against the owner."""
+    """Document ids the question may search: documents the user owns or can read through a shared collection. Resolved
+    from MySQL on every question, before anything is sent to Chroma or the model."""
     if document_ids:
         wanted = set(document_ids)
-        owned = doc_repo.get_owned_many(db, user.id, list(wanted))
+        if len(wanted) > settings.max_documents_per_question:
+            raise bad_request("TOO_MANY_DOCUMENTS", f"Select at most {settings.max_documents_per_question} documents per question.")
+        owned = access_service.get_readable_many(db, user.id, list(wanted))
         if len(owned) != len(wanted):
             raise AppError(404, "DOCUMENT_NOT_FOUND", "One or more selected documents were not found.")
         if any(d.processing_status != STATUS_READY for d in owned):
             raise AppError(409, "DOCUMENT_NOT_READY", "A selected document is still being processed or failed to process.")
         return [d.id for d in owned]
-    ready = doc_repo.ready_ids_for_user(db, user.id)
+    ready = access_service.readable_ready_ids(db, user.id)
     if not ready:
         raise bad_request("NO_READY_DOCUMENTS", "Upload a PDF and wait until it is ready before asking questions.")
     return ready
@@ -107,14 +121,16 @@ _GENERIC_REQUEST = re.compile(
 def _overview_sources(db: Session, user: User, allowed_ids: list[int]) -> list[Source]:
     """For "summarise this document" style requests a similarity search is meaningless (the question names no topic),
     so the beginning of each selected document is used instead."""
-    docs = doc_repo.get_owned_many(db, user.id, allowed_ids)
+    docs = access_service.get_readable_many(db, user.id, allowed_ids)
     docs = sorted(docs, key=lambda d: d.id, reverse=True)[: settings.top_k_results]
     if not docs:
         return []
     per_doc = max(1, settings.top_k_results // len(docs))
     by_id = {d.id: d for d in docs}
     sources: list[Source] = []
-    for chunk in doc_repo.leading_chunks(db, [d.id for d in docs], per_doc):
+    leading = doc_repo.leading_chunks(db, [d.id for d in docs], per_doc)
+    numbers = doc_repo.version_numbers(db, [c.version_id for c in leading])
+    for chunk in leading:
         sources.append(
             Source(
                 number=len(sources) + 1,
@@ -124,9 +140,41 @@ def _overview_sources(db: Session, user: User, allowed_ids: list[int]) -> list[S
                 page_number=chunk.page_number,
                 text=chunk.extracted_text,
                 vector_id=chunk.vector_reference or vector_service.vector_id_for(chunk.id),
+                version_id=chunk.version_id,
+                version_number=numbers.get(chunk.version_id),
             )
         )
     return sources
+
+
+def _search(embedding: list[float], allowed_ids: list[int]) -> list[vector_service.Hit]:
+    """Nearest chunks. With several documents each one is searched separately so a single large document cannot crowd
+    the others out; the best hits across all of them are then kept, always with every document's strongest match."""
+    k = settings.top_k_results
+    if len(allowed_ids) == 1:
+        return vector_service.query(embedding=embedding, document_ids=allowed_ids, k=k)
+    per_doc = max(2, -(-k // len(allowed_ids)))
+    pool: list[vector_service.Hit] = []
+    for doc_id in allowed_ids:
+        pool.extend(vector_service.query(embedding=embedding, document_ids=[doc_id], k=per_doc))
+    pool.sort(key=lambda h: h.similarity, reverse=True)
+    limit = max(k, min(settings.multi_doc_max_sources, per_doc * len(allowed_ids)))
+    chosen = {id(h) for h in _best_per_document(pool)}
+    for h in pool:
+        if len(chosen) >= limit:
+            break
+        chosen.add(id(h))
+    return [h for h in pool if id(h) in chosen]
+
+
+def _best_per_document(pool: list[vector_service.Hit]) -> list[vector_service.Hit]:
+    seen: set[int] = set()
+    best = []
+    for h in pool:  # pool is sorted best-first
+        if h.document_id not in seen:
+            seen.add(h.document_id)
+            best.append(h)
+    return best
 
 
 def _retrieve(db: Session, user: User, question: str, allowed_ids: list[int]) -> list[Source]:
@@ -138,18 +186,20 @@ def _retrieve(db: Session, user: User, question: str, allowed_ids: list[int]) ->
         logger.error("Question embedding failed: %s", exc)
         raise AppError(503, "EMBEDDING_UNAVAILABLE", "The embedding model is unavailable. Please try again later.") from exc
 
-    hits = vector_service.query(embedding=embedding, user_id=user.id, document_ids=allowed_ids, k=settings.top_k_results)
+    hits = _search(embedding, allowed_ids)
     hits = [h for h in hits if h.similarity >= settings.retrieval_min_similarity]
     if not hits:
         return []
 
     chunks = doc_repo.chunks_by_ids(db, [h.chunk_id for h in hits])
-    docs = {d.id: d for d in doc_repo.get_owned_many(db, user.id, allowed_ids)}
+    docs = {d.id: d for d in access_service.get_readable_many(db, user.id, allowed_ids)}
+    numbers = doc_repo.version_numbers(db, [c.version_id for c in chunks.values()])
     sources: list[Source] = []
     for hit in hits:
         chunk = chunks.get(hit.chunk_id)
         # Re-verify against MySQL: the chunk must exist and belong to an authorised document.
-        if chunk is None or chunk.document_id not in docs or chunk.document_id != hit.document_id:
+        # ... and belong to the document's CURRENT version: passages of superseded versions are never used.
+        if chunk is None or chunk.document_id not in docs or chunk.document_id != hit.document_id or chunk.version_id != docs[chunk.document_id].current_version_id:
             continue
         sources.append(
             Source(
@@ -160,6 +210,8 @@ def _retrieve(db: Session, user: User, question: str, allowed_ids: list[int]) ->
                 page_number=chunk.page_number,
                 text=chunk.extracted_text,
                 vector_id=hit.vector_id,
+                version_id=chunk.version_id,
+                version_number=numbers.get(chunk.version_id),
             )
         )
     return sources
@@ -178,6 +230,10 @@ def _style_hint(question: str) -> str:
     if _GENERIC_REQUEST.search(question):
         return "\nFormat: a short paragraph of three to four sentences."
     return ""
+
+
+def _system_prompt(sources: list[Source]) -> str:
+    return SYSTEM_PROMPT + (MULTI_DOCUMENT_RULES if len({s.document_id for s in sources}) > 1 else "")
 
 
 def _build_user_prompt(question: str, sources: list[Source]) -> str:
@@ -199,7 +255,7 @@ def _history(db: Session, conversation: Conversation) -> list[dict]:
 
 _REPEATED_MARKER = re.compile(r"(\[S\d+\])(?:\s*\1)+")
 _PARTIAL_MARKER = re.compile(r"\[S?\d*\s*$")
-_MALFORMED_MARKER = re.compile(r"\[S+\s*(\d+)\]")
+_MALFORMED_MARKER = re.compile(r"\[\s*S+\s*(\d+)\s*\]")
 _INSUFFICIENT_WORDS = re.compile(r"INSUFFICIENT[_ ]?EVIDENCE\.?", re.I)
 
 
@@ -292,6 +348,8 @@ def validate_and_format(raw: str, sources: list[Source]) -> Answer:
             "document_id": valid[n].document_id,
             "document_name": valid[n].document_name,
             "page_number": valid[n].page_number,
+            "version_id": valid[n].version_id,
+            "version_number": valid[n].version_number,
             "excerpt": valid[n].text[:EXCERPT_CHARS],
             "chunk_id": valid[n].vector_id,
         }
@@ -300,12 +358,47 @@ def validate_and_format(raw: str, sources: list[Source]) -> Answer:
     return Answer(content.strip(), citations)
 
 
+def _insufficient_for(names: list[str]) -> Answer:
+    if len(names) < 2:
+        return _insufficient()
+    shown = ", ".join(names[:5]) + (f" and {len(names) - 5} more" if len(names) > 5 else "")
+    return Answer(
+        "I couldn't find enough evidence to answer that in the selected documents "
+        f"({shown}). Try rephrasing the question, or select the documents that should contain the answer.",
+        [],
+    )
+
+
+MARKER_ONLY_RETRY = (
+    "Your reply contained only a source marker. Answer the question again in one or two complete sentences using only the sources, "
+    "and put the source marker like [S1] after the sentence. If the sources do not answer it, reply exactly INSUFFICIENT_EVIDENCE."
+)
+
+
+def _is_marker_only(raw: str) -> bool:
+    """True when the model's reply has no words at all once citation markers are removed (and is not an explicit refusal)."""
+    text = _tidy(raw)
+    return text != INSUFFICIENT_TOKEN and bool(text) and not _MARKER.sub("", text).strip(" .,;:-\n")
+
+
 def answer_question(db: Session, user: User, conversation: Conversation, question: str, document_ids: list[int] | None) -> Answer:
     allowed = _resolve_scope(db, user, document_ids)
+    names = [d.original_filename for d in access_service.get_readable_many(db, user.id, allowed)] if document_ids else []
     sources = _retrieve(db, user, question, allowed)
     if not sources:
-        return _insufficient()
-
-    messages = [*_history(db, conversation), {"role": "user", "content": _build_user_prompt(question, sources)}]
-    raw = get_llm().generate(SYSTEM_PROMPT, messages)
-    return validate_and_format(raw, sources)
+        answer = _insufficient_for(names)
+    else:
+        messages = [*_history(db, conversation), {"role": "user", "content": _build_user_prompt(question, sources)}]
+        raw = get_llm().generate(_system_prompt(sources), messages)
+        answer = validate_and_format(raw, sources)
+        if _is_marker_only(raw):
+            # Small models sometimes answer with nothing but a source marker ("[ S1 ]"). Ask once for a real sentence.
+            messages += [{"role": "assistant", "content": raw.strip()}, {"role": "user", "content": MARKER_ONLY_RETRY}]
+            raw = get_llm().generate(_system_prompt(sources), messages)
+            answer = validate_and_format(raw, sources)
+            if _is_marker_only(raw):  # still no sentence: an answer must never be just a marker
+                answer = _insufficient_for(names)
+        if not answer.citations:
+            answer = _insufficient_for(names)
+    answer.document_count, answer.source_count = len(allowed), len(sources)
+    return answer

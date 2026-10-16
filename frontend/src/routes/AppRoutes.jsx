@@ -15,6 +15,10 @@ const About = lazy(() => import('../pages/public/About'))
 const Dashboard = lazy(() => import('../pages/app/Dashboard'))
 const Documents = lazy(() => import('../pages/app/Documents'))
 const DocumentDetails = lazy(() => import('../pages/app/DocumentDetails'))
+const ReviewCenter = lazy(() => import('../pages/app/ReviewCenter'))
+const SearchPage = lazy(() => import('../pages/app/Search'))
+const KnowledgeBase = lazy(() => import('../pages/app/KnowledgeBase'))
+const CollectionDetails = lazy(() => import('../pages/app/CollectionDetails'))
 const Assistant = lazy(() => import('../pages/app/Assistant'))
 const History = lazy(() => import('../pages/app/History'))
 const Analytics = lazy(() => import('../pages/app/Analytics'))
@@ -48,6 +52,10 @@ export default function AppRoutes() {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="documents" element={<Documents />} />
             <Route path="documents/:documentId" element={<DocumentDetails />} />
+            <Route path="reviews" element={<ReviewCenter />} />
+            <Route path="search" element={<SearchPage />} />
+            <Route path="knowledge" element={<KnowledgeBase />} />
+            <Route path="knowledge/collections/:collectionId" element={<CollectionDetails />} />
             <Route path="assistant/:conversationId?" element={<Assistant />} />
             <Route path="history" element={<History />} />
             <Route path="analytics" element={<Analytics />} />
