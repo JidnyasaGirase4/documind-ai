@@ -5,7 +5,7 @@ import { DEMO } from './config'
 export function DemoBanner() {
   if (!DEMO) return null
   return (
-    <div role="note" className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 bg-brand-900 px-4 py-2 text-center text-sm text-white">
+    <div role="note" className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 bg-brand-800 px-4 py-2 text-center text-sm text-white">
       <Info className="h-4 w-4 shrink-0" aria-hidden="true" />
       <span>
         <strong>Live demo with sample data.</strong> Everything runs in your browser; AI answers are simplified, and uploads and sharing are switched off.
