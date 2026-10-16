@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DocuMind AI: answers you can trace back to the page</title>
+  <meta name="description" content="DocuMind AI is an AI knowledge management platform for PDF documents: cited Q&A, hybrid search, role-based sharing, versions, reviews and conflict detection." />
+  <meta property="og:title" content="DocuMind AI" />
+  <meta property="og:description" content="AI knowledge management for PDFs: cited answers, hybrid search, sharing, versions, reviews and conflict detection." />
+  <meta property="og:image" content="https://jidnyasagirase4.github.io/documind-ai/user-guide/screenshots/citation_viewer.png" />
+  <style>
+    :root {
+      --brand: #8a1c3c; --brand-dark: #6b1530; --brand-soft: #fbeef1; --ink: #1c181b; --muted: #5d5558; --line: #e7e0e2; --bg: #f7f5f3; --surface: #ffffff; --gold: #b8892b; --ok: #15803d;
+      --radius: 18px; --shadow: 0 10px 30px rgba(28, 24, 27, .08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; font: 17px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: var(--ink); background: var(--bg); }
+    a { color: var(--brand); }
+    img { max-width: 100%; height: auto; display: block; }
+    .skip { position: absolute; left: -999px; top: 8px; background: #fff; padding: 8px 14px; border-radius: 8px; z-index: 50; }
+    .skip:focus { left: 8px; }
+    :focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; border-radius: 6px; }
+    .wrap { width: min(1120px, 100% - 40px); margin-inline: auto; }
+    header.nav { position: sticky; top: 0; z-index: 20; background: rgba(247, 245, 243, .92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+    .nav .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 66px; }
+    .logo { font-weight: 800; font-size: 21px; color: var(--ink); text-decoration: none; letter-spacing: -.02em; }
+    .logo b { color: var(--brand); }
+    nav ul { display: flex; gap: 22px; list-style: none; margin: 0; padding: 0; }
+    nav a { color: var(--ink); text-decoration: none; font-weight: 600; font-size: 15px; }
+    nav a:hover { color: var(--brand); }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px; border-radius: 12px; font-weight: 700; text-decoration: none; border: 1px solid transparent; font-size: 16px; transition: transform .15s, box-shadow .15s; }
+    .btn:hover { transform: translateY(-2px); }
+    .btn.primary { background: linear-gradient(180deg, #a3254a, var(--brand)); color: #fff; box-shadow: 0 8px 18px rgba(138, 28, 60, .28); }
+    .btn.ghost { background: var(--surface); color: var(--ink); border-color: var(--line); }
+    .hero { padding: 72px 0 48px; background: radial-gradient(1000px 420px at 85% -10%, #f3d9e0 0%, transparent 70%), radial-gradient(700px 300px at 0% 0%, #f6ecd2 0%, transparent 65%); }
+    .hero .grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 44px; align-items: center; }
+    .eyebrow { display: inline-block; font-size: 13px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--brand); background: var(--brand-soft); padding: 6px 12px; border-radius: 999px; }
+    h1 { font-size: clamp(36px, 5.2vw, 58px); line-height: 1.08; letter-spacing: -.03em; margin: 18px 0 18px; }
+    h1 span { color: var(--brand); }
+    .lead { font-size: 20px; color: var(--muted); max-width: 34em; }
+    .cta { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 28px; }
+    .shot { border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--line); background: #fff; overflow: hidden; }
+    .note { margin: 26px 0 0; padding: 14px 18px; border-left: 4px solid var(--gold); background: #fff8e6; border-radius: 10px; font-size: 15.5px; }
+    section { padding: 64px 0; }
+    section.alt { background: var(--surface); border-block: 1px solid var(--line); }
+    h2 { font-size: clamp(28px, 3.6vw, 40px); letter-spacing: -.02em; margin: 0 0 10px; line-height: 1.15; }
+    .sub { color: var(--muted); font-size: 19px; max-width: 42em; margin: 0 0 34px; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; box-shadow: 0 2px 8px rgba(28, 24, 27, .04); transition: transform .2s, box-shadow .2s; }
+    .card:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
+    .card .ic { width: 46px; height: 46px; border-radius: 13px; background: var(--brand-soft); color: var(--brand); display: grid; place-items: center; font-size: 22px; margin-bottom: 14px; }
+    .card h3 { margin: 0 0 6px; font-size: 19px; }
+    .card p { margin: 0; color: var(--muted); font-size: 16px; }
+    .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 30px; }
+    a.shot { display: block; }
+    a.shot:hover { box-shadow: 0 14px 36px rgba(138, 28, 60, .18); }
+    figure { margin: 0; }
+    figcaption { padding-top: 10px; color: var(--muted); font-size: 15.5px; }
+    figcaption b { color: var(--ink); }
+    .steps { counter-reset: s; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 18px; list-style: none; padding: 0; margin: 0; }
+    .steps li { counter-increment: s; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; position: relative; }
+    .steps li::before { content: counter(s); position: absolute; top: -14px; left: 18px; width: 30px; height: 30px; border-radius: 50%; background: var(--brand); color: #fff; font-weight: 800; display: grid; place-items: center; }
+    .steps b { display: block; margin-bottom: 4px; }
+    table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); font-size: 16px; }
+    th { background: var(--brand); color: #fff; text-align: left; padding: 12px 14px; }
+    td { padding: 11px 14px; border-top: 1px solid var(--line); }
+    td.c, th.c { text-align: center; }
+    .tw { overflow-x: auto; }
+    .chips { display: flex; flex-wrap: wrap; gap: 10px; }
+    .chip { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; font-weight: 600; font-size: 15px; }
+    .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 18px; }
+    .fact { background: var(--brand); color: #fff; border-radius: var(--radius); padding: 24px; }
+    .fact b { display: block; font-size: 38px; line-height: 1.1; }
+    pre { background: #1c181b; color: #f3ecee; padding: 20px; border-radius: var(--radius); overflow-x: auto; font-size: 14.5px; line-height: 1.6; }
+    footer { padding: 36px 0 52px; color: var(--muted); font-size: 15px; border-top: 1px solid var(--line); }
+    footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px; }
+    .reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease; }
+    .reveal.in { opacity: 1; transform: none; }
+    @media (max-width: 900px) { .hero .grid { grid-template-columns: 1fr; } nav ul { display: none; } .hero { padding-top: 44px; } }
+    @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } html { scroll-behavior: auto; } .card, .btn { transition: none; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="nav">
+    <div class="wrap">
+      <a class="logo" href="#top">DocuMind <b>AI</b></a>
+      <nav aria-label="Sections"><ul>
+        <li><a href="#features">Features</a></li><li><a href="#screens">Screenshots</a></li><li><a href="#how">How it works</a></li><li><a href="#security">Permissions</a></li><li><a href="#run">Run it</a></li>
+      </ul></nav>
+      <a class="btn primary" href="https://github.com/JidnyasaGirase4/documind-ai">View on GitHub</a>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="wrap grid">
+        <div>
+          <span class="eyebrow">AI knowledge management</span>
+          <h1>Answers you can <span>trace back to the page.</span></h1>
+          <p class="lead">Upload your PDFs, search them, ask questions and get cited answers that open the exact page with the passage highlighted. Share collections with a team, keep every version, schedule reviews and check documents for contradictions.</p>
+          <div class="cta">
+            <a class="btn primary" href="https://github.com/JidnyasaGirase4/documind-ai">Source code</a>
+            <a class="btn ghost" href="https://github.com/JidnyasaGirase4/documind-ai/blob/main/DocuMind_AI_User_Guide.pdf">User guide (PDF, 34 pages)</a>
+          </div>
+          <p class="note"><b>About this page:</b> this is the project site. The application itself needs a MySQL database, a vector store and an AI model, so it runs on your own computer: see <a href="#run">Run it</a>. Every screenshot below is a real screenshot of the running application.</p>
+        </div>
+        <div class="shot reveal"><img src="user-guide/screenshots/citation_viewer.png" width="1366" height="900" alt="The citation viewer showing a PDF page with the supporting passage highlighted" /></div>
+      </div>
+    </section>
+
+    <section id="features" class="alt">
+      <div class="wrap">
+        <h2>What it does</h2>
+        <p class="sub">A complete workflow from a pile of PDFs to a knowledge base your team can trust.</p>
+        <div class="cards">
+          <div class="card reveal"><div class="ic">❝</div><h3>Cited AI answers</h3><p>Every answer cites its document, version and page. If the documents do not support an answer, it says so instead of guessing.</p></div>
+          <div class="card reveal"><div class="ic">⌕</div><h3>Hybrid search</h3><p>Keyword (MySQL FULLTEXT) and semantic (embeddings in Chroma) results merged with reciprocal rank fusion, with filters and highlighted snippets.</p></div>
+          <div class="card reveal"><div class="ic">▤</div><h3>Collections, categories, tags</h3><p>Organize documents your way and filter by any of them.</p></div>
+          <div class="card reveal"><div class="ic">👥</div><h3>Team sharing</h3><p>Share a collection as Viewer or Editor. Permissions are enforced on the server for every request, and revoking access is immediate.</p></div>
+          <div class="card reveal"><div class="ic">⎘</div><h3>Version history</h3><p>Upload new versions, compare the text, restore an old one as a new version. Search and AI only use the current version; old citations open the original file.</p></div>
+          <div class="card reveal"><div class="ic">✓</div><h3>Content reviews</h3><p>Review dates and intervals, due and overdue status derived from the dates, and a history of who reviewed which version.</p></div>
+          <div class="card reveal"><div class="ic">⚠</div><h3>Potential conflicts</h3><p>The AI compares passages across documents and shows both sources as evidence. A person decides; nothing is confirmed automatically.</p></div>
+          <div class="card reveal"><div class="ic">⚙</div><h3>Reliable processing</h3><p>Background jobs in a MySQL queue with progress, automatic retries and manual retry.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="screens">
+      <div class="wrap">
+        <h2>See it working</h2>
+        <p class="sub">Screenshots from the running application (sample engineering policies).</p>
+        <div class="gallery">
+          <figure class="reveal"><a class="shot" href="user-guide/screenshots/search.png" target="_blank" rel="noopener" aria-label="Open the full-size screenshot"><img loading="lazy" src="user-guide/screenshots/search.png" width="1366" height="900" alt="Hybrid search results with highlighted words, category, tags and page links" /></a><figcaption><b>Hybrid search</b> with highlighted matches and one-click page links.</figcaption></figure>
+          <figure class="reveal"><a class="shot" href="user-guide/screenshots/assistant.png" target="_blank" rel="noopener" aria-label="Open the full-size screenshot"><img loading="lazy" src="user-guide/screenshots/assistant.png" width="1366" height="900" alt="AI assistant answer with a source card showing document, version and page" /></a><figcaption><b>Assistant</b> answers with sources: document, version, page and quote.</figcaption></figure>
+          <figure class="reveal"><a class="shot" href="user-guide/screenshots/version_history.png" target="_blank" rel="noopener" aria-label="Open the full-size screenshot"><img loading="lazy" src="user-guide/screenshots/version_history.png" width="1366" height="900" alt="Version history with current and earlier versions, restore and download actions" /></a><figcaption><b>Version history</b> with restore, download and compare.</figcaption></figure>
+          <figure class="reveal"><a class="shot" href="user-guide/screenshots/compare.png" target="_blank" rel="noopener" aria-label="Open the full-size screenshot"><img loading="lazy" src="user-guide/screenshots/compare.png" width="1366" height="900" alt="Text comparison of two versions with added and removed words marked" /></a><figcaption><b>Comparison</b> marks removed and added words.</figcaption></figure>
+          <figure class="reveal"><a class="shot" href="user-guide/screenshots/conflict_finding.png" target="_blank" rel="noopener" aria-label="Open the full-size screenshot"><img loading="lazy" src="user-guide/screenshots/conflict_finding.png" width="1366" height="900" alt="A potential conflict with evidence from two documents and a recorded decision" /></a><figcaption><b>Potential conflict</b> with evidence from both sources and a recorded decision.</figcaption></figure>
+          <figure class="reveal"><a class="shot" href="user-guide/screenshots/reviews_dashboard.png" target="_blank" rel="noopener" aria-label="Open the full-size screenshot"><img loading="lazy" src="user-guide/screenshots/reviews_dashboard.png" width="1366" height="900" alt="Review dashboard with scheduled, due, overdue and completed counts" /></a><figcaption><b>Review dashboard</b> for due and overdue content.</figcaption></figure>
+          <figure class="reveal"><a class="shot" href="user-guide/screenshots/sharing.png" target="_blank" rel="noopener" aria-label="Open the full-size screenshot"><img loading="lazy" src="user-guide/screenshots/sharing.png" width="1366" height="900" alt="Members and sharing panel with Owner, Editor and Viewer roles" /></a><figcaption><b>Sharing</b> with Owner, Editor and Viewer roles.</figcaption></figure>
+          <figure class="reveal"><a class="shot" href="user-guide/screenshots/phone.png" target="_blank" rel="noopener" style="max-width:300px" aria-label="Open the full-size screenshot"><img loading="lazy" src="user-guide/screenshots/phone.png" width="390" height="844" alt="The document page on a phone-sized screen" /></a><figcaption><b>Responsive</b>: the same pages on a phone-sized screen.</figcaption></figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="how" class="alt">
+      <div class="wrap">
+        <h2>How it works</h2>
+        <p class="sub">MySQL decides who may see what; the vector index is only a search aid.</p>
+        <ol class="steps">
+          <li class="reveal"><b>Upload</b>The PDF is validated and stored; a background worker extracts, chunks, embeds and indexes it.</li>
+          <li class="reveal"><b>Authorize</b>Each request resolves the documents the user may read from MySQL before anything is retrieved.</li>
+          <li class="reveal"><b>Retrieve</b>Chroma finds similar passages; each hit is re-checked in MySQL and must belong to the current version.</li>
+          <li class="reveal"><b>Answer</b>Only those passages go to the LLM; citations are validated against what was sent.</li>
+          <li class="reveal"><b>Open</b>A citation opens the exact page; the passage is highlighted only when it was located reliably.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="security">
+      <div class="wrap">
+        <h2>Permissions</h2>
+        <p class="sub">Enforced by the backend on every route; hiding a button is only convenience.</p>
+        <div class="tw"><table>
+          <thead><tr><th>Action</th><th class="c">Owner</th><th class="c">Editor</th><th class="c">Viewer</th></tr></thead>
+          <tbody>
+            <tr><td>See documents, search, ask questions, open PDFs, versions, reviews, findings</td><td class="c">Yes</td><td class="c">Yes</td><td class="c">Yes</td></tr>
+            <tr><td>Add own documents, edit labels, upload or restore versions, schedule reviews, run conflict analysis</td><td class="c">Yes</td><td class="c">Yes</td><td class="c">No</td></tr>
+            <tr><td>Edit or delete the collection, invite, change roles, revoke members</td><td class="c">Yes</td><td class="c">No</td><td class="c">No</td></tr>
+            <tr><td>Delete the uploaded file</td><td class="c" colspan="3">Only the person who uploaded it</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <section class="alt">
+      <div class="wrap">
+        <h2>Built and tested</h2>
+        <p class="sub">Numbers from the test runs on the final code.</p>
+        <div class="facts">
+          <div class="fact"><b>297</b>backend tests passing</div>
+          <div class="fact"><b>100</b>frontend tests passing</div>
+          <div class="fact"><b>8</b>database migrations (Alembic)</div>
+          <div class="fact"><b>76</b>API routes, all behind authorization tests</div>
+        </div>
+        <p style="margin-top:22px">The application was also driven end to end in a real Chrome browser with a local AI model (sign-in, upload, cited answers, search, sharing, versions, reviews, conflicts, keyboard and layout checks). The results, including what failed and was fixed, are in <a href="https://github.com/JidnyasaGirase4/documind-ai/blob/main/docs/RELEASE_VERIFICATION.md">docs/RELEASE_VERIFICATION.md</a>.</p>
+        <h3 style="margin:30px 0 12px">Technology</h3>
+        <div class="chips"><span class="chip">React 18</span><span class="chip">Vite</span><span class="chip">Tailwind CSS</span><span class="chip">FastAPI</span><span class="chip">Pydantic</span><span class="chip">SQLAlchemy + Alembic</span><span class="chip">MySQL / MariaDB</span><span class="chip">ChromaDB</span><span class="chip">sentence-transformers</span><span class="chip">PyMuPDF</span><span class="chip">Ollama / hosted LLMs</span><span class="chip">pytest</span><span class="chip">Vitest</span></div>
+      </div>
+    </section>
+
+    <section id="run">
+      <div class="wrap">
+        <h2>Run it on your computer</h2>
+        <p class="sub">You need Python 3.11+, Node.js 18+ and MySQL (XAMPP works). For AI answers install <a href="https://ollama.com">Ollama</a> or use a hosted model key.</p>
+<pre>git clone https://github.com/JidnyasaGirase4/documind-ai.git
+cd documind-ai/backend
+python -m venv .venv &amp;&amp; .venv/Scripts/activate
+pip install -r requirements.txt
+cp .env.example .env            # set DATABASE_URL, JWT_SECRET_KEY, LLM_*
+python -m alembic upgrade head
+python -m uvicorn app.main:app --reload --port 8000
+
+cd ../frontend
+npm install
+cp .env.example .env            # VITE_API_BASE_URL=http://127.0.0.1:8000
+npm run dev</pre>
+        <p>Full instructions, configuration reference and troubleshooting are in the <a href="https://github.com/JidnyasaGirase4/documind-ai#readme">README</a>.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>DocuMind AI, built by <a href="https://github.com/JidnyasaGirase4">Jidnyasa Girase</a>.</span>
+      <span><a href="https://github.com/JidnyasaGirase4/documind-ai">Source code</a> · <a href="https://github.com/JidnyasaGirase4/documind-ai/blob/main/DocuMind_AI_User_Guide.pdf">User guide</a></span>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var els = document.querySelectorAll('.reveal');
+      if (!('IntersectionObserver' in window)) { els.forEach(function (e) { e.classList.add('in'); }); return; }
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
+      }, { threshold: 0.12 });
+      els.forEach(function (e) { io.observe(e); });
+    })();
+  </script>
+</body>
+</html>
